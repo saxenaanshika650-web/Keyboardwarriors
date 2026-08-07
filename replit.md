@@ -1,44 +1,39 @@
-# [Project name]
+# ABTalks Interview Agent
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A minimal FastAPI server that provides the starting point for the ABTalks hackathon interview agent.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `uvicorn main:app --reload` from `artifacts/api-server` — run the API server locally
+- `POST /api/interview` — accept a JSON object and return a test response
+- `GET /api/healthz` — service health check
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Python
+- API: FastAPI
+- Server: Uvicorn
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/api-server/main.py` — FastAPI application and routes
+- `artifacts/api-server/requirements.txt` — Python dependencies
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The first milestone intentionally has no AI, database, authentication, or frontend dependencies.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- The interview endpoint currently confirms that the API is working and echoes the submitted JSON.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep the initial project beginner-friendly and add the AI interviewer only in a later milestone.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run Uvicorn from `artifacts/api-server` so `main:app` resolves correctly.
 
 ## Pointers
 
