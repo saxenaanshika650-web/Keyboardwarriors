@@ -4,6 +4,11 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 
+from breeth_memory import (
+    BreethApiError,
+    BreethConfigurationError,
+    add_interview_memory,
+)
 from data_loader import find_candidate
 from interview_session import create_session, get_session, record_answer
 
@@ -63,7 +68,23 @@ async def interview(payload: dict[str, Any]) -> dict[str, Any]:
         if session is None:
             raise HTTPException(status_code=404, detail="Interview session not found")
 
+        previous_question = session.questions[-1]
         next_question = record_answer(session, payload["message"])
+        try:
+            add_interview_memory(
+                session_id=session.session_id,
+                candidate=session.candidate,
+                question=previous_question,
+                answer=payload["message"],
+            )
+        except BreethConfigurationError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except BreethApiError as error:
+            raise HTTPException(
+                status_code=502,
+                detail="Interview answer was stored, but Breeth memory could not be updated.",
+            ) from error
+
         return {
             "sessionId": session.session_id,
             "status": session.status,

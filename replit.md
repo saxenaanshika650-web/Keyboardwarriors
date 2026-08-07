@@ -19,6 +19,7 @@ A minimal FastAPI server that provides the starting point for the ABTalks hackat
 - `artifacts/api-server/main.py` — FastAPI application and routes
 - `artifacts/api-server/data_loader.py` — local JSON loading and lookup functions
 - `artifacts/api-server/interview_session.py` — in-memory interview session state
+- `artifacts/api-server/breeth_memory.py` — direct Breeth REST integration
 - `artifacts/api-server/data/candidates.json` — candidate data copied from the uploaded file
 - `artifacts/api-server/data/curriculum.json` — curriculum data copied from the uploaded file
 - `artifacts/api-server/requirements.txt` — Python dependencies
@@ -31,6 +32,7 @@ A minimal FastAPI server that provides the starting point for the ABTalks hackat
 
 - Interview sessions are intentionally in-memory and reset when the server restarts.
 - The first two temporary questions cover curriculum days 7 and 8.
+- Breeth receives interview question/answer memories in a session-specific group.
 - The temporary candidate test route returns data from the local JSON files.
 
 ## User preferences
