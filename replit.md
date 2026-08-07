@@ -17,6 +17,9 @@ A minimal FastAPI server that provides the starting point for the ABTalks hackat
 ## Where things live
 
 - `artifacts/api-server/main.py` — FastAPI application and routes
+- `artifacts/api-server/data_loader.py` — local JSON loading and lookup functions
+- `artifacts/api-server/data/candidates.json` — candidate data copied from the uploaded file
+- `artifacts/api-server/data/curriculum.json` — curriculum data copied from the uploaded file
 - `artifacts/api-server/requirements.txt` — Python dependencies
 
 ## Architecture decisions
@@ -26,6 +29,7 @@ A minimal FastAPI server that provides the starting point for the ABTalks hackat
 ## Product
 
 - The interview endpoint currently confirms that the API is working and echoes the submitted JSON.
+- The temporary candidate test route returns data from the local JSON files.
 
 ## User preferences
 
