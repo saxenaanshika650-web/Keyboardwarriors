@@ -1,2 +1,3 @@
 - [Artifact workflow working directory](workflow-working-directory.md) — managed artifact commands start inside their artifact directory.
 - [Breeth REST integration](breeth-rest-integration.md) — Breeth memory uses direct REST calls with session-scoped groups.
+- [Gemini interviewer](gemini-interviewer.md) — question generation uses Google GenAI structured output with completed-topic constraints.

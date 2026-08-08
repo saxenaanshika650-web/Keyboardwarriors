@@ -11,15 +11,30 @@ class InterviewSession:
     session_id: str
     candidate: dict[str, Any]
     questions: list[str] = field(default_factory=list)
+    question_details: list[dict[str, Any]] = field(default_factory=list)
     answers: list[str] = field(default_factory=list)
     questions_asked: int = 0
     curriculum_days_covered: list[int] = field(default_factory=list)
     topics_covered: list[str] = field(default_factory=list)
     status: str = "ongoing"
 
-    def add_question(self, question: str, day_number: int) -> None:
+    def add_question(
+        self,
+        question: str,
+        day_number: int,
+        question_type: str = "conceptual",
+        reasoning: str = "Initial interview question.",
+    ) -> None:
         """Record a question and its curriculum topic."""
         self.questions.append(question)
+        self.question_details.append(
+            {
+                "question": question,
+                "question_type": question_type,
+                "curriculum_day": day_number,
+                "reasoning": reasoning,
+            }
+        )
         self.questions_asked += 1
 
         if day_number not in self.curriculum_days_covered:
@@ -51,8 +66,6 @@ def get_session(session_id: str) -> InterviewSession | None:
     return sessions.get(session_id)
 
 
-def record_answer(session: InterviewSession, answer: str) -> str:
-    """Store an answer and return the next temporary question."""
+def record_answer(session: InterviewSession, answer: str) -> None:
+    """Store an answer in the current session."""
     session.answers.append(answer)
-    session.add_question(FOLLOW_UP_QUESTION, day_number=8)
-    return FOLLOW_UP_QUESTION

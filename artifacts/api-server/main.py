@@ -11,6 +11,11 @@ from breeth_memory import (
 )
 from data_loader import find_candidate
 from interview_session import create_session, get_session, record_answer
+from llm_interviewer import (
+    LlmConfigurationError,
+    LlmGenerationError,
+    generate_next_question,
+)
 
 app = FastAPI(title="ABTalks Interview Agent")
 
@@ -69,7 +74,7 @@ async def interview(payload: dict[str, Any]) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Interview session not found")
 
         previous_question = session.questions[-1]
-        next_question = record_answer(session, payload["message"])
+        record_answer(session, payload["message"])
         try:
             add_interview_memory(
                 session_id=session.session_id,
@@ -85,10 +90,29 @@ async def interview(payload: dict[str, Any]) -> dict[str, Any]:
                 detail="Interview answer was stored, but Breeth memory could not be updated.",
             ) from error
 
+        context = {
+            "candidate": session.candidate,
+            "previous_questions": session.questions,
+            "previous_answers": session.answers,
+            "questions_asked": session.questions_asked,
+        }
+        try:
+            next_question = generate_next_question(context)
+        except LlmConfigurationError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except LlmGenerationError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+        session.add_question(
+            question=next_question["question"],
+            day_number=next_question["curriculum_day"],
+            question_type=next_question["question_type"],
+            reasoning=next_question["reasoning"],
+        )
         return {
             "sessionId": session.session_id,
             "status": session.status,
-            "question": next_question,
+            **next_question,
         }
 
     raise HTTPException(
