@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from breeth_memory import (
     BreethApiError,
@@ -24,6 +25,17 @@ from llm_interviewer import (
 )
 
 app = FastAPI(title="ABTalks Interview Agent")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://keyboardwarriors-interview.onrender.com",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/api/healthz")
