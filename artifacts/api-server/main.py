@@ -10,10 +10,16 @@ from breeth_memory import (
     add_interview_memory,
 )
 from data_loader import find_candidate
-from interview_session import create_session, get_session, record_answer
+from interview_session import (
+    REQUIRED_QUESTION_COUNT,
+    create_session,
+    get_session,
+    record_answer,
+)
 from llm_interviewer import (
     LlmConfigurationError,
     LlmGenerationError,
+    generate_feedback,
     generate_next_question,
 )
 
@@ -34,6 +40,49 @@ async def test_candidate(candidate_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
     return candidate
+
+
+def _session_context(session) -> dict[str, Any]:
+    return {
+        "candidate": session.candidate,
+        "previous_questions": session.questions,
+        "previous_answers": session.answers,
+        "question_details": session.question_details,
+        "answers": session.answers,
+        "questions_asked": session.questions_asked,
+        "curriculum_days_covered": session.curriculum_days_covered,
+        "topics_covered": session.topics_covered,
+    }
+
+
+def _store_answer_memory(session, question: str, answer: str) -> None:
+    try:
+        add_interview_memory(
+            session_id=session.session_id,
+            candidate=session.candidate,
+            question=question,
+            answer=answer,
+        )
+    except BreethConfigurationError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except BreethApiError as error:
+        raise HTTPException(
+            status_code=502,
+            detail="Interview answer was stored, but Breeth memory could not be updated.",
+        ) from error
+
+
+def _generate_and_complete(session) -> dict[str, Any]:
+    if session.feedback is not None:
+        return session.feedback
+    try:
+        feedback = generate_feedback(_session_context(session))
+    except LlmConfigurationError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except LlmGenerationError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    session.complete(feedback)
+    return feedback
 
 
 @app.post("/api/interview")
@@ -58,11 +107,16 @@ async def interview(payload: dict[str, Any]) -> dict[str, Any]:
         if get_session(session_id) is not None:
             raise HTTPException(status_code=409, detail="Session already exists")
 
-        session = create_session(session_id, payload["candidate"])
+        try:
+            session = create_session(session_id, payload["candidate"])
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
         return {
             "sessionId": session.session_id,
             "status": session.status,
             "question": session.questions[-1],
+            "questionsAsked": session.questions_asked,
+            "requiredQuestions": REQUIRED_QUESTION_COUNT,
         }
 
     if has_message:
@@ -72,50 +126,74 @@ async def interview(payload: dict[str, Any]) -> dict[str, Any]:
         session = get_session(session_id)
         if session is None:
             raise HTTPException(status_code=404, detail="Interview session not found")
+        if session.status == "completed":
+            raise HTTPException(status_code=409, detail="Interview session is already completed")
 
         previous_question = session.questions[-1]
-        record_answer(session, payload["message"])
         try:
-            add_interview_memory(
-                session_id=session.session_id,
-                candidate=session.candidate,
-                question=previous_question,
-                answer=payload["message"],
-            )
-        except BreethConfigurationError as error:
-            raise HTTPException(status_code=503, detail=str(error)) from error
-        except BreethApiError as error:
-            raise HTTPException(
-                status_code=502,
-                detail="Interview answer was stored, but Breeth memory could not be updated.",
-            ) from error
+            record_answer(session, payload["message"])
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
 
-        context = {
-            "candidate": session.candidate,
-            "previous_questions": session.questions,
-            "previous_answers": session.answers,
-            "questions_asked": session.questions_asked,
-        }
+        _store_answer_memory(session, previous_question, payload["message"])
+
+        if session.is_ready_for_feedback:
+            return {
+                "sessionId": session.session_id,
+                "status": session.status,
+                "message": "Required interview questions answered. Call /api/interview/{session_id}/complete for structured feedback.",
+                "questionsAsked": session.questions_asked,
+                "answersRecorded": session.answered_questions,
+                "requiredQuestions": REQUIRED_QUESTION_COUNT,
+            }
+
         try:
-            next_question = generate_next_question(context)
+            next_question = generate_next_question(_session_context(session))
         except LlmConfigurationError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
         except LlmGenerationError as error:
             raise HTTPException(status_code=502, detail=str(error)) from error
 
-        session.add_question(
-            question=next_question["question"],
-            day_number=next_question["curriculum_day"],
-            question_type=next_question["question_type"],
-            reasoning=next_question["reasoning"],
-        )
+        try:
+            session.add_question(
+                question=next_question["question"],
+                day_number=next_question["curriculum_day"],
+                question_type=next_question["question_type"],
+                reasoning=next_question["reasoning"],
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
         return {
             "sessionId": session.session_id,
             "status": session.status,
             **next_question,
+            "questionsAsked": session.questions_asked,
+            "requiredQuestions": REQUIRED_QUESTION_COUNT,
         }
 
     raise HTTPException(
         status_code=400,
         detail="Provide candidate when starting or message when answering",
     )
+
+
+@app.post("/api/interview/{session_id}/complete")
+async def complete_interview(session_id: str) -> dict[str, Any]:
+    """Complete an interview and return structured feedback."""
+    session = get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+    if not session.is_ready_for_feedback:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Interview requires {REQUIRED_QUESTION_COUNT} answered questions before feedback.",
+        )
+
+    feedback = _generate_and_complete(session)
+    return {
+        "sessionId": session.session_id,
+        "status": session.status,
+        "questionsAsked": session.questions_asked,
+        "answersRecorded": session.answered_questions,
+        "feedback": feedback,
+    }
