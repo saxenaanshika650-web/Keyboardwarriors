@@ -29,7 +29,7 @@ app = FastAPI(title="ABTalks Interview Agent")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://keyboardwarriors-interview.onrender.com",
+        "https://keyboardwarriors-1.onrender.com",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
